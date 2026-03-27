@@ -1,3 +1,4 @@
+include(config.cmake)
 # Copyright 2022 The Dawn & Tint Authors
 #
 # Redistribution and use in source and binary forms, with or without

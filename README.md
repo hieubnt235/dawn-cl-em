@@ -18,3 +18,8 @@ endif()
 # ... process target
 target_link_libraries(target PRIVATE webgpu)
 ```
+```cmake
+# install build
+cmake -S . -B out/Release -DDAWN_ENABLE_INSTALL=ON -DCMAKE_BUILD_TYPE=Release -DTINY_BUILD=ON
+
+```

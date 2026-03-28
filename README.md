@@ -5,6 +5,7 @@ chmod +x ./solve_deps.sh && ./solve_deps.sh
 
 ```cmake
 #  CmakeLists.txt of other project
+include("${DAWN_DIR}/tiny-config.cmake")
 
 add_subdirectory("${LIBS_DIR}/dawn" EXCLUDE_FROM_ALL)
 add_library(webgpu INTERFACE)

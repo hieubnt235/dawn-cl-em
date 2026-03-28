@@ -456,22 +456,19 @@ TEST_P(ExternalTextureTests, TextureDimensionsWithTextureView) {
 // externalTexture binding.
 TEST_P(ExternalTextureTests, TextureLoadWithTextureView) {
     wgpu::Texture texture =
-        Create2DTexture(device, kWidth, kHeight, kFormat,
-                        wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::RenderAttachment);
+        MakeTestTexture(kFormat, kWidth, kHeight, {1.0 / 255.0, 2.0 / 255.0, 3.0 / 255.0, 1.0});
 
     // Create buffer that will store textureLoad result
-    std::vector<float> data = {42, 42, 42, 42};
-    std::vector<float> expected = {0, 0, 0, 0};
-    uint64_t bufferSize = static_cast<uint64_t>(data.size() * sizeof(float));
+    uint32_t kZero = 0;
     wgpu::Buffer buffer = utils::CreateBufferFromData(
-        device, data.data(), bufferSize, wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc);
+        device, &kZero, sizeof(uint32_t), wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc);
 
     wgpu::ShaderModule module = utils::CreateShaderModule(device, R"(
         @group(0) @binding(0) var texture : texture_external;
-        @group(0) @binding(1) var<storage, read_write> buffer: vec4f;
+        @group(0) @binding(1) var<storage, read_write> buffer: u32;
 
         @compute @workgroup_size(1) fn main() {
-            buffer = textureLoad(texture, vec2(0, 0));
+            buffer = pack4x8unorm(textureLoad(texture, vec2(0, 0)));
         })");
 
     // Pipeline Creation
@@ -480,9 +477,8 @@ TEST_P(ExternalTextureTests, TextureLoadWithTextureView) {
     wgpu::ComputePipeline pipeline = device.CreateComputePipeline(&csDesc);
 
     // Set up bind group that uses a TextureView for the external_texture in WGSL
-    wgpu::BindGroup bindGroup =
-        utils::MakeBindGroup(device, pipeline.GetBindGroupLayout(0),
-                             {{0, texture.CreateView()}, {1, buffer, 0, bufferSize}});
+    wgpu::BindGroup bindGroup = utils::MakeBindGroup(device, pipeline.GetBindGroupLayout(0),
+                                                     {{0, texture.CreateView()}, {1, buffer}});
 
     // Issue dispatch
     wgpu::CommandBuffer commands;
@@ -495,10 +491,7 @@ TEST_P(ExternalTextureTests, TextureLoadWithTextureView) {
     commands = encoder.Finish();
     queue.Submit(1, &commands);
 
-    EXPECT_BUFFER_FLOAT_EQ(expected[0], buffer, 0);
-    EXPECT_BUFFER_FLOAT_EQ(expected[1], buffer, 4);
-    EXPECT_BUFFER_FLOAT_EQ(expected[2], buffer, 8);
-    EXPECT_BUFFER_FLOAT_EQ(expected[3], buffer, 12);
+    EXPECT_BUFFER_RGBA8_EQ(utils::RGBA8(1, 2, 3, 255), buffer, 0);
 }
 
 // https://crbug.com/1515439
@@ -1784,6 +1777,136 @@ TEST_P(ExternalTextureTests, SampleDifferentKindsDifferentBindGroups) {
         EXPECT_BUFFER_RGBA8_EQ(colors[(2 + roll) % 3], resultBuffer, 8);
     }
 }
+
+// Test using a pipeline with two external textures in the layout, one of which is unused.
+TEST_P(ExternalTextureTests, LayoutWithUnusedExternalTexture) {
+    // Make the two external textures.
+    wgpu::ExternalTexture usedET = utils::MakePassthroughExternalTexture(
+        device, MakeTestTexture(wgpu::TextureFormat::RGBA8Unorm, 1, 1,
+                                {1.0 / 255.0, 2.0 / 255.0, 3.0 / 255.0, 4.0 / 255.0}));
+
+    wgpu::ExternalTexture unusedET = utils::MakePassthroughExternalTexture(
+        device, MakeTestTexture(wgpu::TextureFormat::RGBA8Unorm, 1, 1,
+                                {2.0 / 255.0, 4.0 / 255.0, 6.0 / 255.0, 8.0 / 255.0}));
+
+    // Create the layout using both external textures.
+    wgpu::BindGroupLayout bgl = utils::MakeBindGroupLayout(
+        device, {
+                    {0, wgpu::ShaderStage::Compute, wgpu::SamplerBindingType::Filtering},
+                    {1, wgpu::ShaderStage::Compute, wgpu::BufferBindingType::Storage},
+                    {2, wgpu::ShaderStage::Compute, &utils::kExternalTextureBindingLayout},
+                    {3, wgpu::ShaderStage::Compute, &utils::kExternalTextureBindingLayout},
+                });
+
+    wgpu::PipelineLayout pl = utils::MakePipelineLayout(device, {bgl});
+
+    // Create the pipeline that samples only one of the external textures that's in the layout.
+    wgpu::ComputePipelineDescriptor csDesc;
+    csDesc.compute.module = utils::CreateShaderModule(device, R"(
+        @group(0) @binding(0) var s : sampler;
+        @group(0) @binding(1) var<storage, read_write> results : u32;
+        @group(0) @binding(2) var t : texture_external;
+
+        @compute @workgroup_size(1) fn main() {
+            results = pack4x8unorm(textureSampleBaseClampToEdge(t, s, vec2(0)));
+        }
+    )");
+    csDesc.layout = pl;
+    wgpu::ComputePipeline pipeline = device.CreateComputePipeline(&csDesc);
+
+    // Run the pipeline and check the results.
+    wgpu::BufferDescriptor resultDesc = {
+        .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc,
+        .size = sizeof(uint32_t),
+    };
+    wgpu::Buffer resultBuffer = device.CreateBuffer(&resultDesc);
+
+    wgpu::BindGroup bg = utils::MakeBindGroup(device, pipeline.GetBindGroupLayout(0),
+                                              {
+                                                  {0, device.CreateSampler()},
+                                                  {1, resultBuffer},
+                                                  {2, usedET},
+                                                  {3, unusedET},
+                                              });
+    wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
+    wgpu::ComputePassEncoder pass = encoder.BeginComputePass();
+    pass.SetBindGroup(0, bg);
+    pass.SetPipeline(pipeline);
+    pass.DispatchWorkgroups(1);
+    pass.End();
+
+    wgpu::CommandBuffer commands = encoder.Finish();
+    queue.Submit(1, &commands);
+
+    EXPECT_BUFFER_RGBA8_EQ(utils::RGBA8(1, 2, 3, 4), resultBuffer, 0);
+}
+
+// Test that using a dynamic offset works when there is an external texture in the same
+// BindGroupLayout
+TEST_P(ExternalTextureTests, UseExternalTextureWithDynamicOffset) {
+    // TODO(42242119): fail on Qualcomm Adreno X1.
+    DAWN_SUPPRESS_TEST_IF(IsD3D11() && IsQualcomm());
+
+    // Make the two external textures.
+    wgpu::ExternalTexture et = utils::MakePassthroughExternalTexture(
+        device, MakeTestTexture(wgpu::TextureFormat::RGBA8Unorm, 1, 1,
+                                {1.0 / 255.0, 2.0 / 255.0, 3.0 / 255.0, 4.0 / 255.0}));
+
+    // Create the layout using both external textures.
+    wgpu::BindGroupLayout bgl = utils::MakeBindGroupLayout(
+        device, {
+                    {0, wgpu::ShaderStage::Compute, wgpu::SamplerBindingType::Filtering},
+                    {1, wgpu::ShaderStage::Compute, wgpu::BufferBindingType::Storage, true},
+                    {2, wgpu::ShaderStage::Compute, &utils::kExternalTextureBindingLayout},
+                });
+
+    wgpu::PipelineLayout pl = utils::MakePipelineLayout(device, {bgl});
+
+    // Create the pipeline that samples only one of the external textures that's in the layout.
+    wgpu::ComputePipelineDescriptor csDesc;
+    csDesc.compute.module = utils::CreateShaderModule(device, R"(
+        @group(0) @binding(0) var s : sampler;
+        @group(0) @binding(1) var<storage, read_write> results : u32;
+        @group(0) @binding(2) var t : texture_external;
+
+        @compute @workgroup_size(1) fn main() {
+            results = pack4x8unorm(textureSampleBaseClampToEdge(t, s, vec2(0)));
+        }
+    )");
+    csDesc.layout = pl;
+    wgpu::ComputePipeline pipeline = device.CreateComputePipeline(&csDesc);
+
+    for (uint32_t offset : {0, 256}) {
+        // Run the pipeline and check the results.
+        wgpu::BufferDescriptor resultDesc = {
+            .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc,
+            .size = sizeof(uint32_t) + 256,
+        };
+        wgpu::Buffer resultBuffer = device.CreateBuffer(&resultDesc);
+
+        wgpu::BindGroup bg = utils::MakeBindGroup(device, pipeline.GetBindGroupLayout(0),
+                                                  {
+                                                      {0, device.CreateSampler()},
+                                                      {1, resultBuffer, 0, 4},
+                                                      {2, et},
+                                                  });
+        wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
+        wgpu::ComputePassEncoder pass = encoder.BeginComputePass();
+        pass.SetBindGroup(0, bg, 1, &offset);
+        pass.SetPipeline(pipeline);
+        pass.DispatchWorkgroups(1);
+        pass.End();
+
+        wgpu::CommandBuffer commands = encoder.Finish();
+        queue.Submit(1, &commands);
+
+        EXPECT_BUFFER_RGBA8_EQ(utils::RGBA8(1, 2, 3, 4), resultBuffer, offset);
+        EXPECT_BUFFER_RGBA8_EQ(utils::RGBA8(0, 0, 0, 0), resultBuffer, 256 - offset);
+    }
+}
+
+// TODO(https://crbug.com/468988322): Add tests of ExternalTextures being used with a resource table
+// and with Vulkan's extended dynamic state as these are other interactions that could easily break.
 
 DAWN_INSTANTIATE_TEST(ExternalTextureTests,
                       D3D11Backend(),

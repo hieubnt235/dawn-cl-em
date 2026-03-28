@@ -1,0 +1,12 @@
+[workspace]
+authors = ["HieuBNT <hieu.buinguyen2352001@gmail.com>"]
+channels = ["conda-forge"]
+name = "dawn-cl-em"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+conf-cl = "export CC=clang CXX=clang++ && cmake -S . -B build-cl -G Ninja -DDAWN_ENABLE_INSTALL=ON -DTINY_BUILD=ON -DCMAKE_BUILD_TYPE=Release"
+build-cl = "cmake --build build-cl"
+install = "cmake --install build-cl"
+[dependencies]

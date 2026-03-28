@@ -22,7 +22,7 @@ target_link_libraries(target PRIVATE webgpu)
 Install build with clang
 
 ```bash
-pixi run conf-cl
+pixi run conf-cl # The same with: pixi run conf-cl -DTINY_BUILD=ON -DLIBCPP=ON
 pixi run build-cl
 pixi run install --prefix /libs_dir/dawn/dist
 ```

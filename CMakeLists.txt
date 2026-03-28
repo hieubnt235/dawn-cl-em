@@ -1,50 +1,16 @@
-option(TINY_BUILD "Build tiny version" OFF )
-if(${TINY_BUILD})
-    include("${CMAKE_CURRENT_SOURCE_DIR}/tiny-config.cmake")
-    message(STATUS "Build tiny version")
-endif()
 
-# Copyright 2022 The Dawn & Tint Authors
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-#    contributors may be used to endorse or promote products derived from
-#    this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-# As per https://github.com/google/oss-policies-info/blob/main/foundational-cxx-support-matrix.md
 cmake_minimum_required(VERSION 3.22)
-
-# - Since we are past CMake 3.12 we can add CONFIGURE_DEPENDS to DawnGenerator to rerun CMake
-#   in case any of the generator files changes. We should also remove the CACHE "" FORCE stuff to
-#   override options in third_party dependencies.
-
 project(
-    Dawn
-    DESCRIPTION "Dawn, a WebGPU implementation"
-    LANGUAGES C CXX
-    HOMEPAGE_URL "https://dawn.googlesource.com/dawn"
-    VERSION 0.0.0
+        Dawn
+        DESCRIPTION "Dawn, a WebGPU implementation"
+        LANGUAGES C CXX
+        HOMEPAGE_URL "https://dawn.googlesource.com/dawn"
+        VERSION 0.0.0
 )
+include(libcpp.cmake)
+include(tiny-config.cmake)
+
+
 enable_testing()
 
 list(INSERT CMAKE_MODULE_PATH 0 "${Dawn_SOURCE_DIR}/src/cmake")
@@ -59,8 +25,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(IS_DEBUG_BUILD 0)
 string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
 if ((NOT ${build_type} STREQUAL "RELEASE") AND (NOT ${build_type} STREQUAL "RELWITHDEBINFO"))
-  set(IS_DEBUG_BUILD 1)
-endif()
+    set(IS_DEBUG_BUILD 1)
+endif ()
 
 include(DawnSetIfNotDefined)
 
@@ -94,49 +60,49 @@ set(BUILD_TESTS OFF)
 set(TARGET_MACOS OFF)
 set(FORCE_SYSTEM_COMPONENT_LOAD OFF)
 if (EMSCRIPTEN)
-  # Only the samples are supported for Emscripten at the moment.
-  # TODO(crbug.com/42240181): Make dawn_end2end_tests work too.
-  set(BUILD_SAMPLES ON)
-  set(BUILD_TESTS ON)
-  set(ENABLE_NULL OFF)
-  set(ENABLE_WEBGPU_ON_WEBGPU OFF)
+    # Only the samples are supported for Emscripten at the moment.
+    # TODO(crbug.com/42240181): Make dawn_end2end_tests work too.
+    set(BUILD_SAMPLES ON)
+    set(BUILD_TESTS ON)
+    set(ENABLE_NULL OFF)
+    set(ENABLE_WEBGPU_ON_WEBGPU OFF)
 elseif (WIN32)
-  set(ENABLE_D3D11 ON)
-  set(USE_WINDOWS_UI ON)
-  set(ENABLE_D3D12 ON)
-  if (NOT WINDOWS_STORE)
-    # Enable Vulkan in win32 compilation only
-    # since UWP only supports d3d
+    set(ENABLE_D3D11 ON)
+    set(USE_WINDOWS_UI ON)
+    set(ENABLE_D3D12 ON)
+    if (NOT WINDOWS_STORE)
+        # Enable Vulkan in win32 compilation only
+        # since UWP only supports d3d
+        set(ENABLE_VULKAN ON)
+        set(ENABLE_SPIRV_VALIDATION ON)
+    endif ()
+elseif (APPLE)
+    set(ENABLE_METAL ON)
+    if (CMAKE_SYSTEM_NAME MATCHES "Darwin" OR CMAKE_SYSTEM_NAME MATCHES "MacOS")
+        set(TARGET_MACOS ON)
+    endif ()
+elseif (ANDROID)
+    set(ENABLE_VULKAN ON)
+    set(ENABLE_OPENGLES ON)
+    set(ENABLE_SPIRV_VALIDATION ON)
+elseif (UNIX)
+    set(ENABLE_OPENGLES ON)
+    set(ENABLE_DESKTOP_GL ON)
     set(ENABLE_VULKAN ON)
     set(ENABLE_SPIRV_VALIDATION ON)
-  endif()
-elseif(APPLE)
-  set(ENABLE_METAL ON)
-  if(CMAKE_SYSTEM_NAME MATCHES "Darwin" OR CMAKE_SYSTEM_NAME MATCHES "MacOS")
-    set(TARGET_MACOS ON)
-  endif()
-elseif(ANDROID)
-  set(ENABLE_VULKAN ON)
-  set(ENABLE_OPENGLES ON)
-  set(ENABLE_SPIRV_VALIDATION ON)
-elseif(UNIX)
-  set(ENABLE_OPENGLES ON)
-  set(ENABLE_DESKTOP_GL ON)
-  set(ENABLE_VULKAN ON)
-  set(ENABLE_SPIRV_VALIDATION ON)
-  set(USE_X11 ON)
-endif()
+    set(USE_X11 ON)
+endif ()
 
 # GLFW is not supported in UWP
 set(DAWN_SUPPORTS_GLFW_FOR_WINDOWING OFF)
 if (EMSCRIPTEN OR (WIN32 AND NOT WINDOWS_STORE) OR (UNIX AND NOT ANDROID))
     set(DAWN_SUPPORTS_GLFW_FOR_WINDOWING ON)
-endif()
+endif ()
 
 # Current examples are depend on GLFW
 if (DAWN_SUPPORTS_GLFW_FOR_WINDOWING)
     set(BUILD_SAMPLES ON)
-endif()
+endif ()
 
 option(DAWN_ENABLE_ASAN "Enable address sanitizer" OFF)
 option(DAWN_ENABLE_INSTALL "Enable install step for Dawn libraries" OFF)
@@ -148,7 +114,7 @@ if (DAWN_ENABLE_UBSAN)
     # DAWN_ENABLE_UBSAN includes -fsanitize=vptr which does not work without RTTI. Force enable it
     # (by shadowing the option with a normal variable so we don't overwrite it in CMakeCache.txt).
     set(DAWN_ENABLE_RTTI ON)
-endif()
+endif ()
 
 option(DAWN_ENABLE_D3D11 "Enable compilation of the D3D11 backend" ${ENABLE_D3D11})
 option(DAWN_ENABLE_D3D12 "Enable compilation of the D3D12 backend" ${ENABLE_D3D12})
@@ -213,30 +179,30 @@ set(DAWN_BUILD_MONOLITHIC_LIBRARY "STATIC" CACHE STRING "Build monolithic librar
 set_property(CACHE DAWN_BUILD_MONOLITHIC_LIBRARY PROPERTY STRINGS SHARED SHARED STATIC)
 
 string(TOUPPER "${DAWN_BUILD_MONOLITHIC_LIBRARY}" _option_upper)
-if(NOT _option_upper STREQUAL "OFF" AND
-   NOT _option_upper STREQUAL "SHARED" AND
-   NOT _option_upper STREQUAL "STATIC")
+if (NOT _option_upper STREQUAL "OFF" AND
+        NOT _option_upper STREQUAL "SHARED" AND
+        NOT _option_upper STREQUAL "STATIC")
     message(FATAL_ERROR "DAWN_BUILD_MONOLITHIC_LIBRARY must be SHARED, STATIC, or OFF, but was \"${DAWN_BUILD_MONOLITHIC_LIBRARY}\".")
-endif()
+endif ()
 if (DAWN_BUILD_MONOLITHIC_LIBRARY AND BUILD_SHARED_LIBS)
     message(FATAL_ERROR "DAWN_BUILD_MONOLITHIC_LIBRARY SHARED/STATIC requires BUILD_SHARED_LIBS=OFF. Otherwise the bundled library will depend on other shared libraries which defeats the purpose.")
-endif()
+endif ()
 option(DAWN_FETCH_DEPENDENCIES "Use fetch_dawn_dependencies.py as an alternative to using depot_tools" OFF)
 
 if (DAWN_ENABLE_OPENGLES OR DAWN_ENABLE_DESKTOP_GL)
-  set(TINT_DEFAULT_GLSL ON)
-else()
-  set(TINT_DEFAULT_GLSL OFF)
-endif()
+    set(TINT_DEFAULT_GLSL ON)
+else ()
+    set(TINT_DEFAULT_GLSL OFF)
+endif ()
 
 option(TINT_ENABLE_INSTALL "Enable install step for Tint libraries" OFF)
 option(TINT_BUILD_CMD_TOOLS "Build the Tint command line tools" ON)
 
 if (DAWN_BUILD_SAMPLES)
-  if (NOT DAWN_USE_GLFW AND NOT EMSCRIPTEN)
-    message(SEND_ERROR "Dawn samples require GLFW or Emscripten")
-  endif()
-endif()
+    if (NOT DAWN_USE_GLFW AND NOT EMSCRIPTEN)
+        message(SEND_ERROR "Dawn samples require GLFW or Emscripten")
+    endif ()
+endif ()
 
 option(TINT_BUILD_SPV_READER "Build the SPIR-V input reader" ${DAWN_ENABLE_VULKAN})
 option(TINT_BUILD_WGSL_READER "Build the WGSL input reader" ON)
@@ -257,11 +223,11 @@ option(TINT_BUILD_AS_OTHER_OS "Override OS detection to force building of *_othe
 option(TINT_BUILD_MESA "Build Mesa" OFF)
 
 if (EMSCRIPTEN)
-  # Skip tint tests in emscripten build
-  set(TINT_BUILD_TESTS OFF)
-  # Skip GLSL validation in Emscripten
-  set(TINT_BUILD_GLSL_VALIDATOR OFF)
-endif()
+    # Skip tint tests in emscripten build
+    set(TINT_BUILD_TESTS OFF)
+    # Skip GLSL validation in Emscripten
+    set(TINT_BUILD_GLSL_VALIDATOR OFF)
+endif ()
 
 option(TINT_BUILD_TINTD "Build the WGSL language server" OFF)
 
@@ -371,33 +337,33 @@ message(STATUS "")
 
 if (TINT_BUILD_FUZZER_VULKAN_SUPPORT AND NOT TINT_BUILD_FUZZERS)
     message(FATAL_ERROR "Cannot enable TINT_BUILD_FUZZER_VULKAN_SUPPORT without enabling TINT_BUILD_FUZZERS")
-endif()
+endif ()
 
 # Much of the backend code is shared among desktop OpenGL and OpenGL ES
 if (${DAWN_ENABLE_DESKTOP_GL} OR ${DAWN_ENABLE_OPENGLES})
     set(DAWN_ENABLE_OPENGL ON)
-endif()
+endif ()
 
-if(DAWN_ENABLE_PIC)
+if (DAWN_ENABLE_PIC)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-endif()
+endif ()
 
 # Defines `CMAKE_INSTALL_*DIR` variables
 include(GNUInstallDirs)
 # The public config contains only the include paths for the Dawn headers.
 add_library(dawn_public_config INTERFACE)
 target_include_directories(dawn_public_config INTERFACE
-    "$<BUILD_INTERFACE:${DAWN_INCLUDE_DIR}>"
-    "$<BUILD_INTERFACE:${DAWN_BUILD_GEN_DIR}/include>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+        "$<BUILD_INTERFACE:${DAWN_INCLUDE_DIR}>"
+        "$<BUILD_INTERFACE:${DAWN_BUILD_GEN_DIR}/include>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 # The internal config contains additional path but includes the dawn_public_config include paths
 add_library(dawn_internal_config INTERFACE)
 target_include_directories(dawn_internal_config INTERFACE
-    "${PROJECT_SOURCE_DIR}"
-    "${DAWN_SRC_DIR}"
-    "${DAWN_BUILD_GEN_DIR}/src"
+        "${PROJECT_SOURCE_DIR}"
+        "${DAWN_SRC_DIR}"
+        "${DAWN_BUILD_GEN_DIR}/src"
 )
 target_link_libraries(dawn_internal_config INTERFACE dawn_public_config)
 
@@ -412,8 +378,8 @@ include(DawnInitializeBuildType)
 include(DawnLibrary)
 
 if (NOT ${TINT_LIB_FUZZING_ENGINE_LINK_OPTIONS} STREQUAL "")
-  message(STATUS "Using provided LIB_FUZZING_ENGINE options: ${TINT_LIB_FUZZING_ENGINE_LINK_OPTIONS}")
-endif()
+    message(STATUS "Using provided LIB_FUZZING_ENGINE options: ${TINT_LIB_FUZZING_ENGINE_LINK_OPTIONS}")
+endif ()
 
 find_package(Python3 REQUIRED)
 message(STATUS "Dawn: using python at ${Python3_EXECUTABLE}")
@@ -422,49 +388,49 @@ message(STATUS "Dawn: using python at ${Python3_EXECUTABLE}")
 add_dependencies(dawn_internal_config dawn_warnings_config)
 if (DAWN_ALWAYS_ASSERT OR IS_DEBUG_BUILD)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_ASSERTS")
-endif()
+endif ()
 if (DAWN_ENABLE_D3D11)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_D3D11")
-endif()
+endif ()
 if (DAWN_ENABLE_D3D12)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_D3D12")
-endif()
+endif ()
 if (DAWN_ENABLE_METAL)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_METAL")
-endif()
+endif ()
 if (DAWN_ENABLE_NULL)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_NULL")
-endif()
+endif ()
 if (DAWN_ENABLE_WEBGPU_ON_WEBGPU)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_WEBGPU")
-endif()
+endif ()
 if (DAWN_ENABLE_DESKTOP_GL)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_DESKTOP_GL")
-endif()
+endif ()
 if (DAWN_ENABLE_OPENGLES)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_OPENGLES")
-endif()
+endif ()
 if (DAWN_ENABLE_OPENGL)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_OPENGL")
-endif()
+endif ()
 if (DAWN_ENABLE_VULKAN)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_ENABLE_BACKEND_VULKAN")
-endif()
+endif ()
 if (DAWN_USE_WAYLAND)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_USE_WAYLAND")
-endif()
+endif ()
 if (DAWN_USE_X11)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_USE_X11")
-endif()
+endif ()
 if (DAWN_USE_WINDOWS_UI)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_USE_WINDOWS_UI")
-endif()
+endif ()
 if (WIN32)
     target_compile_definitions(dawn_internal_config INTERFACE "NOMINMAX" "WIN32_LEAN_AND_MEAN")
-endif()
+endif ()
 if (DAWN_FORCE_SYSTEM_COMPONENT_LOAD)
     target_compile_definitions(dawn_internal_config INTERFACE "DAWN_FORCE_SYSTEM_COMPONENT_LOAD")
-endif()
+endif ()
 
 ################################################################################
 # Tint
@@ -472,9 +438,9 @@ endif()
 
 set(TINT_LIB_FUZZING_ENGINE_LINK_OPTIONS "" CACHE STRING "Used by OSS-Fuzz to control, via link options, which fuzzing engine should be used")
 
-set(TINT_ROOT_SOURCE_DIR   ${PROJECT_SOURCE_DIR})
+set(TINT_ROOT_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(TINT_SPIRV_HEADERS_DIR ${DAWN_SPIRV_HEADERS_DIR})
-set(TINT_SPIRV_TOOLS_DIR   ${DAWN_SPIRV_TOOLS_DIR})
+set(TINT_SPIRV_TOOLS_DIR ${DAWN_SPIRV_TOOLS_DIR})
 
 
 ################################################################################
@@ -499,65 +465,65 @@ if (DAWN_ENABLE_D3D11 OR DAWN_ENABLE_D3D12 OR DAWN_ENABLE_METAL OR DAWN_ENABLE_N
     add_subdirectory(src/emdawnwebgpu)
     add_subdirectory(src/dawn)
     add_subdirectory(src/dawn/fuzzers)
-endif()
+endif ()
 
 ################################################################################
 # Samples
 ################################################################################
 add_custom_target(tint-lint
-  COMMAND ./tools/lint
-  WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
-  COMMENT "Running linter"
-  VERBATIM)
+        COMMAND ./tools/lint
+        WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
+        COMMENT "Running linter"
+        VERBATIM)
 
 add_custom_target(tint-format
-  COMMAND ./tools/format
-  WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
-  COMMENT "Running formatter"
-  VERBATIM)
+        COMMAND ./tools/format
+        WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
+        COMMENT "Running formatter"
+        VERBATIM)
 
 if (DAWN_EMIT_COVERAGE)
-  add_subdirectory(tools/src/cmd/turbo-cov)
+    add_subdirectory(tools/src/cmd/turbo-cov)
 
-  # The tint-generate-coverage target generates a lcov.info file at the project
-  # root, holding the code coverage for all the tint_unitests.
-  # This can be used by tools such as VSCode's Coverage Gutters extension to
-  # visualize code coverage in the editor.
-  get_filename_component(CLANG_BIN_DIR ${CMAKE_C_COMPILER} DIRECTORY)
-  set(PATH_WITH_CLANG "${CLANG_BIN_DIR}:$ENV{PATH}")
-  add_custom_target(tint-generate-coverage
-    COMMAND ${CMAKE_COMMAND} -E env PATH=${PATH_WITH_CLANG} ./tools/tint-generate-coverage $<TARGET_FILE:tint_unittests>
-    DEPENDS tint_unittests
-    WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
-    COMMENT "Generating tint coverage data"
-    VERBATIM)
-endif()
+    # The tint-generate-coverage target generates a lcov.info file at the project
+    # root, holding the code coverage for all the tint_unitests.
+    # This can be used by tools such as VSCode's Coverage Gutters extension to
+    # visualize code coverage in the editor.
+    get_filename_component(CLANG_BIN_DIR ${CMAKE_C_COMPILER} DIRECTORY)
+    set(PATH_WITH_CLANG "${CLANG_BIN_DIR}:$ENV{PATH}")
+    add_custom_target(tint-generate-coverage
+            COMMAND ${CMAKE_COMMAND} -E env PATH=${PATH_WITH_CLANG} ./tools/tint-generate-coverage $<TARGET_FILE:tint_unittests>
+            DEPENDS tint_unittests
+            WORKING_DIRECTORY ${TINT_ROOT_SOURCE_DIR}
+            COMMENT "Generating tint coverage data"
+            VERBATIM)
+endif ()
 
 if (DAWN_BUILD_MONOLITHIC_LIBRARY AND DAWN_ENABLE_INSTALL)
-  # This series of functions add the necessary information so that other CMake projects
-  # can use Dawn, be it from a build directory, a local install or when packaged.
-  install(EXPORT DawnTargets
-    FILE DawnTargets.cmake
-    NAMESPACE dawn::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn")
-  export(EXPORT DawnTargets
-    FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/DawnTargets.cmake"
-      NAMESPACE dawn::
-  )
-  # Create a ConfigVersion.cmake file:
-  include(CMakePackageConfigHelpers)
-  write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/DawnConfigVersion.cmake"
-    COMPATIBILITY AnyNewerVersion)
-  # Configure config file
-  configure_package_config_file("${CMAKE_CURRENT_LIST_DIR}/src/cmake/DawnConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/DawnConfig.cmake"
-    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn"
-  )
-  # Install the fully generated config and configVersion files
-  install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/DawnConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/DawnConfigVersion.cmake"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn"
-  )
+    # This series of functions add the necessary information so that other CMake projects
+    # can use Dawn, be it from a build directory, a local install or when packaged.
+    install(EXPORT DawnTargets
+            FILE DawnTargets.cmake
+            NAMESPACE dawn::
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn")
+    export(EXPORT DawnTargets
+            FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/DawnTargets.cmake"
+            NAMESPACE dawn::
+    )
+    # Create a ConfigVersion.cmake file:
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+            "${CMAKE_CURRENT_BINARY_DIR}/DawnConfigVersion.cmake"
+            COMPATIBILITY AnyNewerVersion)
+    # Configure config file
+    configure_package_config_file("${CMAKE_CURRENT_LIST_DIR}/src/cmake/DawnConfig.cmake.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/DawnConfig.cmake"
+            INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn"
+    )
+    # Install the fully generated config and configVersion files
+    install(FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/DawnConfig.cmake"
+            "${CMAKE_CURRENT_BINARY_DIR}/DawnConfigVersion.cmake"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Dawn"
+    )
 endif ()

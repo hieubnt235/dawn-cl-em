@@ -1,4 +1,8 @@
 option(TINY_BUILD "Build tiny version" OFF )
+if(${TINY_BUILD})
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tiny-config.cmake")
+    message(STATUS "Build tiny version")
+endif()
 
 # Copyright 2022 The Dawn & Tint Authors
 #

@@ -1,3 +1,5 @@
+option(TINY_BUILD "Build tiny version" OFF )
+
 # Copyright 2022 The Dawn & Tint Authors
 #
 # Redistribution and use in source and binary forms, with or without

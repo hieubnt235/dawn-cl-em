@@ -16,13 +16,13 @@ if (TINY_BUILD)
         # Native Linux/Clang setup
         set(DAWN_ENABLE_VULKAN ON CACHE BOOL "" FORCE)
         set(TINT_BUILD_SPV_WRITER ON CACHE BOOL "" FORCE)
+        set(DAWN_USE_X11 ON CACHE BOOL "" FORCE)
+        set(DAWN_USE_WAYLAND ON CACHE BOOL "" FORCE)
     endif ()
 
     # --- ON ---
     set(TINT_BUILD_WGSL_READER ON CACHE BOOL "" FORCE)
     set(TINT_BUILD_WGSL_WRITER ON CACHE BOOL "" FORCE) # Usually keep this for debugging
-    #set(TINT_BUILD_SPV_WRITER ON CACHE BOOL "" FORCE)
-    #set(DAWN_ENABLE_VULKAN ON CACHE BOOL "" FORCE)
 
 
     # --- OFF ---
@@ -42,8 +42,6 @@ if (TINY_BUILD)
     set(DAWN_ENABLE_SPIRV_VALIDATION OFF CACHE BOOL "" FORCE) # Saves linking spirv-val
 
     # Disable windowing integration if use SDL3
-    set(DAWN_USE_X11 OFF CACHE BOOL "" FORCE)
-    set(DAWN_USE_WAYLAND OFF CACHE BOOL "" FORCE)
     set(DAWN_BUILD_NODE_BINDINGS OFF CACHE BOOL "" FORCE)
 
     # Tint stuffs
